@@ -5,15 +5,15 @@
 #
 # To create a schema with 10 million subscribers, first create the schema and 1M subscribers:
 #
-#   ./filldb.py --subscribers=1000000 | mysql -u root --password=password
+#   $ ./filldb.py --subscribers=1000000 | mysql -u root --password=password
 #
 # then create a sql file to append 1M subscribers:
 #
-#   ./filldb.py --subscribers=1000000 --append > x.sql
+#   $ ./filldb.py --subscribers=1000000 --append > x.sql
 #
 # and run it 9 times:
 #
-#    for((i=1;i<=9;i+=1)); do mysql -u root --password=password < x.sql; done
+#   $ for((i=1;i<=9;i+=1)); do mysql -u root --password=password < x.sql; done
 #
 #
 #
@@ -64,32 +64,32 @@ if __name__ == '__main__':
         f.write("""
 CREATE TABLE `time_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `day` SMALLINT NULL,
-  `week` TINYINT NULL,
-  `month` TINYINT NULL,
-  `year` SMALLINT NULL,
-  `date` DATE NULL,
+  `day` SMALLINT,
+  `week` TINYINT,
+  `month` TINYINT,
+  `year` SMALLINT,
+  `date` DATE,
   PRIMARY KEY (`id`),
   INDEX `ymd` (`year` ASC, `month` ASC, `day` ASC),
   UNIQUE INDEX `dwmy` (`day` ASC, `week` ASC, `month` ASC, `year` ASC));
 
 
 CREATE TABLE `subscriptions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `subscriber_id` int(11) NOT NULL,
-  `subscription_pack_id` int(11) DEFAULT NULL,
-  `channel_id` int(11) NOT NULL,
-  `operator_id` int(11) DEFAULT NULL,
-  `time_id` int(11) NOT NULL,
-  `subscription_id` varchar(255) DEFAULT NULL,
-  `last_modified_time` timestamp NULL DEFAULT NULL,
-  `subscription_status` varchar(255) DEFAULT NULL,
-  `start_date` timestamp NULL DEFAULT NULL,
-  `old_subscription_id` int(11) DEFAULT NULL,
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `subscriber_id` INT NOT NULL,
+  `subscription_pack_id` INT,
+  `channel_id` INT NOT NULL,
+  `operator_id` INT,
+  `time_id` INT NOT NULL,
+  `subscription_id` varchar(255),
+  `last_modified_time` timestamp,
+  `subscription_status` varchar(255),
+  `start_date` timestamp,
+  `old_subscription_id` INT,
   `msisdn` varchar(10) NOT NULL,
-  `last_scheduled_message_date` timestamp NULL DEFAULT NULL,
-  `message_campaign_pack` varchar(255) DEFAULT NULL,
-  `referred_by_flw_msisdn` varchar(10) DEFAULT NULL,
+  `last_scheduled_message_date` timestamp,
+  `message_campaign_pack` varchar(255),
+  `referred_by_flw_msisdn` varchar(10),
   `referred_by_flag` bit(1) DEFAULT b'0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `subscription_id` (`subscription_id`) USING BTREE,
@@ -99,28 +99,28 @@ CREATE TABLE `subscriptions` (
 
 CREATE TABLE `channel_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `channel` VARCHAR(255) NULL,
+  `channel` VARCHAR(255),
   PRIMARY KEY (`id`));
 
 
 CREATE TABLE `subscription_pack_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `subscription_pack` VARCHAR(255),
-  `subscription_pack_alias` VARCHAR(255) NULL,
+  `subscription_pack_alias` VARCHAR(255),
   PRIMARY KEY (`id`));
 
 
 CREATE TABLE `subscribers` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(255) NULL,
-  `age_of_beneficiary` INT NULL,
-  `estimated_date_of_delivery` DATE NULL,
-  `channel_id` INT NULL,
-  `location_id` INT NULL,
-  `time_id` INT NULL,
-  `operator_id` INT NULL,
-  `start_week_number` INT NULL,
-  `last_modified_time` TIMESTAMP NULL,
+  `name` VARCHAR(255),
+  `age_of_beneficiary` INT,
+  `estimated_date_of_delivery` DATE,
+  `channel_id` INT,
+  `location_id` INT,
+  `time_id` INT,
+  `operator_id` INT,
+  `start_week_number` INT,
+  `last_modified_time` TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `channel_dimension_idx` (`channel_id` ASC));
 
@@ -128,36 +128,72 @@ CREATE TABLE `subscribers` (
 CREATE TABLE `operator_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `operator` VARCHAR(255) NOT NULL,
-  `start_pulse` INT NULL,
-  `end_pulse` INT NULL,
+  `start_pulse` INT,
+  `end_pulse` INT,
   PRIMARY KEY (`id`));
 
 
 CREATE TABLE `location_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `district` VARCHAR(255) NOT NULL DEFAULT 'null',
-  `block` VARCHAR(255) NOT NULL DEFAULT 'null',
-  `panchayat` VARCHAR(255) NOT NULL DEFAULT 'null',
-  `status` VARCHAR(36) NULL,
-  `last_modified_time` TIMESTAMP NULL DEFAULT NULL,
-  `alternate_location` VARCHAR(10) NULL DEFAULT 'null',
-  `state` VARCHAR(255) NOT NULL DEFAULT 'null',
+  `district` VARCHAR(255) NOT NULL,
+  `block` VARCHAR(255) NOT NULL,
+  `panchayat` VARCHAR(255) NOT NULL,
+  `status` VARCHAR(36),
+  `last_modified_time` TIMESTAMP,
+  `alternate_location` VARCHAR(10),
+  `state` VARCHAR(255) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `sdbp` (`state` ASC, `district` ASC, `block` ASC, `panchayat` ASC));
 
 
 CREATE TABLE `hour_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `hour_of_day` INT NULL,
-  `minute_of_hour` INT NULL,
+  `hour_of_day` INT,
+  `minute_of_hour` INT,
   PRIMARY KEY (`id`));
 
 
 CREATE TABLE `campaign_dimension` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `campaign_id` VARCHAR(45) NULL,
-  `obd_message_duration` INT NULL,
-  `inbox_message_duration` INT NULL,
+  `campaign_id` VARCHAR(45),
+  `obd_message_duration` INT,
+  `inbox_message_duration` INT,
+  PRIMARY KEY (`id`));
+
+
+CREATE TABLE `subscription_status_measure` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `subscription_id` INT NOT NULL,
+  `status` VARCHAR(255),
+  `week_number` INT,
+  `channel_id` INT,
+  `operator_id` INT,
+  `subscription_pack_id` INT,
+  `remarks` VARCHAR(255),
+  `grace_count` INT,
+  `date_id` INT,
+  `last_modified_time` TIMESTAMP,
+  `mode` VARCHAR(255),
+  PRIMARY KEY (`id`));
+
+
+CREATE TABLE `subscriber_call_measure` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `subscription_id` INT NOT NULL,
+  `call_status` VARCHAR(255),
+  `duration` INT,
+  `operator_id` INT,
+  `subscription_pack_id` INT,
+  `service_option` VARCHAR(255),
+  `percentage_listened` TINYINT,
+  `campaign_id` INT,
+  `state_date` INT,
+  `end_date` INT,
+  `start_time` INT,
+  `end_time` INT,
+  `call_source` VARCHAR(255),
+  `subscription_status` VARCHAR(255),
+  `duration_in_pulse` INT,
   PRIMARY KEY (`id`));
 
 
@@ -192,7 +228,6 @@ CREATE TABLE `campaign_dimension` (
         for channel in range(1, args.channels+1):
             f.write('("channel{}"){}\n'.format(channel, ';' if channel == args.channels else ','))
         f.write('UNLOCK TABLES;\n')
-        f.write('ALTER TABLE subscribers ADD FOREIGN KEY subscribers_ibfk_1 (channel_id) REFERENCES channel_dimension(id) ON DELETE SET NULL ON UPDATE CASCADE;\n')
 
 
         f.write('LOCK TABLES hour_dimension WRITE;\n')
@@ -238,6 +273,17 @@ CREATE TABLE `campaign_dimension` (
     f.write('SET @x=(SELECT IFNULL((SELECT MAX(id) FROM subscriptions), 1));\n')
     f.write('LOCK TABLES subscriptions WRITE;\n')
     f.write('INSERT INTO subscriptions (subscriber_id, subscription_pack_id, channel_id, time_id) VALUES\n')
+    count = 1
+    count_subscriptions = args.subscribers*args.subscription_packs
+    for subscription_pack in range(1, args.subscription_packs+1):
+        for subscriber in range(1, args.subscribers+1):
+            f.write('(@x+{},{},{},{}){}\n'.format(subscriber, subscription_pack, 1, 1, ';' if count == count_subscriptions else ','))
+            count += 1
+    f.write('UNLOCK TABLES;\n')
+
+    f.write('SET @x=(SELECT IFNULL((SELECT MAX(id) FROM subscription_status_measure), 1));\n')
+    f.write('LOCK TABLES subscription_status_measure WRITE;\n')
+    f.write('INSERT INTO subscription_status_measure (subscribtion_id, subscription_pack_id, channel_id, time_id) VALUES\n')
     count = 1
     count_subscriptions = args.subscribers*args.subscription_packs
     for subscription_pack in range(1, args.subscription_packs+1):
