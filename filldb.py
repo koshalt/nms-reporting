@@ -1,12 +1,43 @@
 #!/usr/bin/python
 
+########################################################################################################################
+########################################################################################################################
+#
+# To create a schema with 10 million subscribers, first create the schema and 1M subscribers:
+#
+#   ./filldb.py --subscribers=1000000 | mysql -u root --password=password
+#
+# then create a sql file to append 1M subscribers:
+#
+#   ./filldb.py --subscribers=1000000 --append > x.sql
+#
+# and run it 9 times:
+#
+#    for((i=1;i<=9;i+=1)); do mysql -u root --password=password < x.sql; done
+#
+#
+#
+# **************
+# **   NOTE   **
+# **************
+#
+# If you receive either of the following errors:
+# IOError: [Errno 32] Broken pipe
+# or
+# ERROR 2006 (HY000) at line 7406: MySQL server has gone away
+# Try increasing the value of the [mysqld] / max_alllowed_packet entry in /etc/mysql/my.cnf and restart mysql
+#
+########################################################################################################################
+########################################################################################################################
+
 import sys
 import argparse
 import calendar
 import datetime
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-d", "--database", help="database name", default="nms")
+parser.add_argument("--database", help="database name", default="nms")
+parser.add_argument("--append", help="only append to the subscriber & subscription tables", action="store_true")
 parser.add_argument("--subscribers", help="number of subscribers", default=1000, type=int)
 parser.add_argument("--channels", help="number of channels", default=2, type=int)
 parser.add_argument("--subscription_packs", help="number of subscription packs", default=3, type=int)
@@ -23,13 +54,16 @@ args = parser.parse_args()
 if __name__ == '__main__':
     f = sys.stdout
 
-    f.write("drop schema if exists {};\n".format(args.database))
-    f.write("create schema {};\n".format(args.database))
+    if not args.append:
+        f.write("drop schema if exists {};\n".format(args.database))
+        f.write("create schema {};\n".format(args.database))
+
     f.write("use {};\n".format(args.database))
 
-    f.write("""
+    if not args.append:
+        f.write("""
 CREATE TABLE `time_dimension` (
-  `id` INT NOT NULL,
+  `id` INT NOT NULL AUTO_INCREMENT,
   `day` SMALLINT NULL,
   `week` TINYINT NULL,
   `month` TINYINT NULL,
@@ -92,7 +126,7 @@ CREATE TABLE `subscribers` (
 
 
 CREATE TABLE `operator_dimension` (
-  `id` INT NOT NULL,
+  `id` INT NOT NULL AUTO_INCREMENT,
   `operator` VARCHAR(255) NOT NULL,
   `start_pulse` INT NULL,
   `end_pulse` INT NULL,
@@ -129,100 +163,85 @@ CREATE TABLE `campaign_dimension` (
 
     """)
 
-    f.write('LOCK TABLES time_dimension WRITE;\n')
-    f.write('INSERT INTO time_dimension (id, day, week, month, year, date) VALUES\n')
-    id = 1
-    sep = ","
-    this_year = datetime.date.today().year
-    for year in range(this_year, this_year+args.years+1):
-        day = 1
-        week = 1
-        for month in range(1, 13):
-            last_day_of_month = calendar.monthrange(year, month)[1]
-            for day_of_month in range(1, last_day_of_month+1):
-                if year == this_year+args.years and month == 12 and day_of_month == last_day_of_month:
-                    sep = ";"
-                f.write('({},{},{},{},{},"{}-{}-{}"){}\n'.format(id, day, week, month, year, year, month, day_of_month, sep))
-                id += 1
-                day += 1
-                if day % 7 == 0:
-                    week += 1
-    f.write('UNLOCK TABLES;\n')
+        f.write('LOCK TABLES time_dimension WRITE;\n')
+        f.write('INSERT INTO time_dimension (day, week, month, year, date) VALUES\n')
+        sep = ","
+        this_year = datetime.date.today().year
+        for year in range(this_year, this_year+args.years+1):
+            day = 1
+            week = 1
+            for month in range(1, 13):
+                last_day_of_month = calendar.monthrange(year, month)[1]
+                for day_of_month in range(1, last_day_of_month+1):
+                    if year == this_year+args.years and month == 12 and day_of_month == last_day_of_month:
+                        sep = ";"
+                    f.write('({},{},{},{},"{}-{}-{}"){}\n'.format(day, week, month, year, year, month, day_of_month, sep))
+                    day += 1
+                    if day % 7 == 0:
+                        week += 1
+        f.write('UNLOCK TABLES;\n')
 
-    f.write('LOCK TABLES campaign_dimension WRITE;\n')
-    f.write('INSERT INTO campaign_dimension (id, campaign_id) VALUES\n')
-    id = 1
-    for campaign in range(id, args.campaigns+1):
-        f.write('({},"campaign{}"){}\n'.format(id, campaign, ';' if id == args.campaigns else ','))
-        id += 1
-    f.write('UNLOCK TABLES;\n')
+        f.write('LOCK TABLES campaign_dimension WRITE;\n')
+        f.write('INSERT INTO campaign_dimension (campaign_id) VALUES\n')
+        for campaign in range(1, args.campaigns+1):
+            f.write('("campaign{}"){}\n'.format(campaign, ';' if campaign == args.campaigns else ','))
+        f.write('UNLOCK TABLES;\n')
 
-    f.write('LOCK TABLES channel_dimension WRITE;\n')
-    f.write('INSERT INTO channel_dimension (id, channel) VALUES\n')
-    id = 1
-    for channel in range(id, args.channels+1):
-        f.write('({},"channel{}"){}\n'.format(id, channel, ';' if id == args.channels else ','))
-        id += 1
-    f.write('UNLOCK TABLES;\n')
-    f.write('ALTER TABLE subscribers ADD FOREIGN KEY subscribers_ibfk_1 (channel_id) REFERENCES channel_dimension(id) ON DELETE SET NULL ON UPDATE CASCADE;\n')
+        f.write('LOCK TABLES channel_dimension WRITE;\n')
+        f.write('INSERT INTO channel_dimension (channel) VALUES\n')
+        for channel in range(1, args.channels+1):
+            f.write('("channel{}"){}\n'.format(channel, ';' if channel == args.channels else ','))
+        f.write('UNLOCK TABLES;\n')
+        f.write('ALTER TABLE subscribers ADD FOREIGN KEY subscribers_ibfk_1 (channel_id) REFERENCES channel_dimension(id) ON DELETE SET NULL ON UPDATE CASCADE;\n')
 
 
-    f.write('LOCK TABLES hour_dimension WRITE;\n')
-    f.write('INSERT INTO hour_dimension (id, hour_of_day, minute_of_hour) VALUES\n')
-    id = 1
-    count_hours = args.hours * args.minutes
-    for hour in range(0, args.hours):
-        for minute in range(0, args.minutes):
-            f.write('({},{},{}){}\n'.format(id, hour, minute, ';' if id == count_hours else ','))
-            id += 1
-    f.write('UNLOCK TABLES;\n')
+        f.write('LOCK TABLES hour_dimension WRITE;\n')
+        f.write('INSERT INTO hour_dimension (hour_of_day, minute_of_hour) VALUES\n')
+        count_hours = args.hours * args.minutes
+        count = 1
+        for hour in range(0, args.hours):
+            for minute in range(0, args.minutes):
+                f.write('({},{}){}\n'.format(hour, minute, ';' if count == count_hours else ','))
+                count += 1
+        f.write('UNLOCK TABLES;\n')
 
+        f.write('LOCK TABLES location_dimension WRITE;\n')
+        f.write('INSERT INTO location_dimension (state, district, block) VALUES\n')
+        count = 1
+        count_dimensions = args.states*args.districts*args.blocks
+        for state in range(1, args.states+1):
+            for district in range(1, args.districts+1):
+                for block in range(1, args.blocks+1):
+                    f.write('("state{}","district{}","block{}"){}\n'.format(state, district, block, ';' if count == count_dimensions else ','))
+                    count += 1
+        f.write('UNLOCK TABLES;\n')
 
-    f.write('LOCK TABLES location_dimension WRITE;\n')
-    f.write('INSERT INTO location_dimension (id, state, district, block) VALUES\n')
-    id = 1
-    count_dimensions = args.states*args.districts*args.blocks
-    for state in range(1, args.states+1):
-        for district in range(1, args.districts+1):
-            for block in range(1, args.blocks+1):
-                f.write('({}, "state{}","district{}","block{}"){}\n'.format(id, state, district, block, ';' if id == count_dimensions else ','))
-                id += 1
-    f.write('UNLOCK TABLES;\n')
+        f.write('LOCK TABLES operator_dimension WRITE;\n')
+        f.write('INSERT INTO operator_dimension (operator) VALUES\n')
+        for operator in range(1,args.operators+1):
+            f.write('("operator{}"){}\n'.format(operator, ';' if operator == args.operators else ','))
+        f.write('UNLOCK TABLES;\n')
 
+        f.write('LOCK TABLES subscription_pack_dimension WRITE;\n')
+        f.write('INSERT INTO subscription_pack_dimension (subscription_pack) VALUES\n')
+        for subscription_pack in range(1, args.subscription_packs+1):
+            f.write('("subscription_pack{}"){}\n'.format(subscription_pack, ';' if subscription_pack == args.subscription_packs else ','))
+        f.write('UNLOCK TABLES;\n')
 
-    f.write('LOCK TABLES operator_dimension WRITE;\n')
-    f.write('INSERT INTO operator_dimension (id, operator) VALUES\n')
-    id = 1
-    for operator in range(1,args.operators+1):
-        f.write('({}, "operator{}"){}\n'.format(id, operator, ';' if id == args.operators else ','))
-        id += 1
-    f.write('UNLOCK TABLES;\n')
-
-
-    f.write('LOCK TABLES subscription_pack_dimension WRITE;\n')
-    f.write('INSERT INTO subscription_pack_dimension (id, subscription_pack) VALUES\n')
-    id = 1
-    for subscription_pack in range(id, args.subscription_packs+1):
-        f.write('({},"subscription_pack{}"){}\n'.format(id, subscription_pack, ';' if id == args.subscription_packs else ','))
-        id += 1
-    f.write('UNLOCK TABLES;\n')
-
-
+    f.write('SET @x=(SELECT IFNULL((SELECT MAX(id) FROM subscribers), 1));\n')
     f.write('LOCK TABLES subscribers WRITE;\n')
-    f.write('INSERT INTO subscribers (id, name) VALUES\n')
-    id = 1
+    f.write('INSERT INTO subscribers (name) VALUES\n')
     for subscriber in range(1, args.subscribers+1):
-        f.write('({},"subscriber{}"){}\n'.format(id, subscriber, ';' if id == args.subscribers else ','))
-        id += 1
+        f.write('(CONCAT("subscriber", @x+{})){}\n'.format(subscriber, ';' if subscriber == args.subscribers else ','))
     f.write('UNLOCK TABLES;\n')
 
-
+    f.write('SET @x=(SELECT IFNULL((SELECT MAX(id) FROM subscriptions), 1));\n')
     f.write('LOCK TABLES subscriptions WRITE;\n')
-    f.write('INSERT INTO subscriptions (id, subscriber_id, subscription_pack_id, channel_id, time_id) VALUES\n')
-    id = 1
+    f.write('INSERT INTO subscriptions (subscriber_id, subscription_pack_id, channel_id, time_id) VALUES\n')
+    count = 1
     count_subscriptions = args.subscribers*args.subscription_packs
     for subscription_pack in range(1, args.subscription_packs+1):
         for subscriber in range(1, args.subscribers+1):
-            f.write('({},{},{},{},{}){}\n'.format(id, subscriber, subscription_pack, 1, 1, ';' if id == count_subscriptions else ','))
-            id += 1
+            f.write('(@x+{},{},{},{}){}\n'.format(subscriber, subscription_pack, 1, 1, ';' if count == count_subscriptions else ','))
+            count += 1
     f.write('UNLOCK TABLES;\n')
